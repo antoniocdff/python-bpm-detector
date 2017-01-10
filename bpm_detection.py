@@ -8,6 +8,17 @@ from scipy import signal
 import taglib
 
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
 def read_wav(filename):
 
     try:
@@ -33,7 +44,7 @@ def read_wav(filename):
 
 
 def no_audio_data():
-    print "No audio data for sample, skipping..."
+    print bcolors.WARNING + "No audio data for sample, skipping..." + bcolors.ENDC
     return None, None
 
 
@@ -89,28 +100,18 @@ def bpm_detector(data, fs):
     return bpm, correl
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Process .wav file to determine the Beats Per Minute.')
-    parser.add_argument('--filename', required=True,
-                        help='.wav file for processing')
-    parser.add_argument('--round', type=int, default=0,
-                        help='Digits after the decimal point')
-    parser.add_argument('--rename', type=bool, default=False,
-                        help='Set true if want rename file')
-    parser.add_argument('--tag', type=bool, default=False,
-                        help='Set true if want tag bpm in file')
-    parser.add_argument('--window', type=float, default=3,
-                        help='size of the the window (seconds) that will be scanned to determine the bpm.  Typically less than 10 seconds. [3]')
-
-    args = parser.parse_args()
-    samps, fs = read_wav(args.filename)
+def execute(afilename, awindow, around, arename, atag):
+    try:
+        samps, fs = read_wav(afilename)
+    except:
+        print bcolors.FAIL + '[Error] ' + file + bcolors.ENDC
 
     data = []
     correl = []
     bpm = 0
     n = 0
     nsamps = len(samps)
-    window_samps = int(args.window*fs)
+    window_samps = int(awindow*fs)
     samps_ndx = 0
     max_window_ndx = nsamps / window_samps
     bpms = numpy.zeros(max_window_ndx)
@@ -130,16 +131,58 @@ if __name__ == '__main__':
         n = n+1
 
     bpm = numpy.median(bpms)
-    bpm = round(bpm, args.round)
+    bpm = round(bpm, around)
 
-    if args.round == 0:
+    if around == 0:
         bpm = int(bpm)
-    print 'Completed.  Estimated Beats Per Minute:', bpm
-    if args.rename:
-        filename_array = args.filename.split('.wav')
+    if bpm > 0:
+        print bcolors.OKBLUE + '[Detected]' + str(afilename) + ': ' + bcolors.ENDC + bcolors.OKGREEN + str(bpm) + bcolors.ENDC
+    if atag:
+        try:
+            song = taglib.File(afilename)
+            song.tags["BPM"] = [str(bpm)]
+            song.save()
+            print bcolors.OKBLUE + '[Tagged]' + str(afilename) + bcolors.ENDC
+        except OSError, e:
+            print bcolors.WARNING + '[Error tagg]' + str(afilename) + bcolors.ENDC
+    if arename:
+        filename_array = afilename.split('.wav')
         new_filename = filename_array[0]+' ('+str(bpm)+') .wav'
-        os.rename(args.filename, new_filename)
-    if args.tag:
-        song = taglib.File(args.filename)
-        song.tags["BPM"] = [str(bpm)]
-        song.save()
+        try:
+            os.rename(afilename, new_filename)
+            print bcolors.OKBLUE + '[Renamed]' + str(afilename) + bcolors.ENDC
+        except:
+            print bcolors.WARNING + '[Error rename]' + str(afilename) + bcolors.ENDC
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Process .wav file to determine the Beats Per Minute.')
+    parser.add_argument('--filename', required=False,
+                        help='.wav file for processing')
+    parser.add_argument('--folder', required=False,
+                        help='folder with .wav files for processing')
+    parser.add_argument('--round', type=int, default=0,
+                        help='Digits after the decimal point')
+    parser.add_argument('--rename', type=bool, default=False,
+                        help='Set true if want rename file')
+    parser.add_argument('--tag', type=bool, default=False,
+                        help='Set true if want tag bpm in file')
+    parser.add_argument('--window', type=float, default=3,
+                        help='size of the the window (seconds) that will be scanned to determine the bpm.  Typically less than 10 seconds. [3]')
+
+    args = parser.parse_args()
+
+    if args.folder:
+        mypath = args.folder
+        f = []
+        for (dirpath, dirnames, filenames) in os.walk(mypath):
+            f.extend(filenames)
+            break
+        for file in f:
+            filearray = file.split('.wav')
+            if len(filearray) > 1:
+                execute(args.folder+'/'+file, args.window, args.round, args.rename, args.tag)
+    elif args.filename:
+        execute(args.file, args.window, args.round, args.rename, args.tag)
+    else:
+        print bcolors.WARNING + 'You must set filename or folder params' + bcolors.ENDC
