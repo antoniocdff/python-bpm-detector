@@ -23,8 +23,8 @@ def read_wav(filename):
 
     try:
         wf = wave.open(filename, 'rb')
-    except IOError, e:
-        print e
+    except IOError as e:
+        print(e)
         return
 
     nsamps = wf.getnframes()
@@ -37,14 +37,14 @@ def read_wav(filename):
 
     try:
         assert(nsamps == len(samps))
-    except AssertionError, e:
-        print nsamps, "not equal to", len(samps)
+    except AssertionError as e:
+        print(nsamps, "not equal to", len(samps))
 
     return samps, fs
 
 
 def no_audio_data():
-    print bcolors.WARNING + "No audio data for sample, skipping..." + bcolors.ENDC
+    print(bcolors.WARNING + "No audio data for sample, skipping..." + bcolors.ENDC)
     return None, None
 
 
@@ -71,6 +71,7 @@ def bpm_detector(data, fs):
         if loop == 0:
             [cA, cD] = pywt.dwt(data, 'db4')
             cD_minlen = len(cD)/max_decimation+1
+            cD_minlen = int(cD_minlen)
             cD_sum = numpy.zeros(cD_minlen)
         else:
             [cA, cD] = pywt.dwt(cA, 'db4')
@@ -90,7 +91,10 @@ def bpm_detector(data, fs):
     correl = numpy.correlate(cD_sum, cD_sum, 'full')
 
     midpoint = len(correl) / 2
+    midpoint = int(midpoint)
     correl_midpoint_tmp = correl[midpoint:]
+    max_ndx = int(max_ndx)
+    min_ndx = int(min_ndx)
     peak_ndx = peak_detect(correl_midpoint_tmp[min_ndx:max_ndx])
     if len(peak_ndx) > 1:
         return no_audio_data()
@@ -104,7 +108,7 @@ def execute(afilename, awindow, around, arename, atag):
     try:
         samps, fs = read_wav(afilename)
     except:
-        print bcolors.FAIL + '[Error] ' + file + bcolors.ENDC
+        print(bcolors.FAIL + '[Error] ' + afilename + bcolors.ENDC)
 
     data = []
     correl = []
@@ -114,9 +118,10 @@ def execute(afilename, awindow, around, arename, atag):
     window_samps = int(awindow*fs)
     samps_ndx = 0
     max_window_ndx = nsamps / window_samps
+    max_window_ndx = int(max_window_ndx)
     bpms = numpy.zeros(max_window_ndx)
 
-    for window_ndx in xrange(0, max_window_ndx):
+    for window_ndx in range(0, max_window_ndx):
         data = samps[samps_ndx:samps_ndx+window_samps]
         if not ((len(data) % window_samps) == 0):
             raise AssertionError(str(len(data)))
@@ -136,23 +141,23 @@ def execute(afilename, awindow, around, arename, atag):
     if around == 0:
         bpm = int(bpm)
     if bpm > 0:
-        print bcolors.OKBLUE + '[Detected]' + str(afilename) + ': ' + bcolors.ENDC + bcolors.OKGREEN + str(bpm) + bcolors.ENDC
+        print(bcolors.OKBLUE + '[Detected]' + str(afilename) + ': ' + bcolors.ENDC + bcolors.OKGREEN + str(bpm) + bcolors.ENDC)
     if atag:
         try:
             song = taglib.File(afilename)
             song.tags["BPM"] = [str(bpm)]
             song.save()
-            print bcolors.OKBLUE + '[Tagged]' + str(afilename) + bcolors.ENDC
-        except OSError, e:
-            print bcolors.WARNING + '[Error tagg]' + str(afilename) + bcolors.ENDC
+            print(bcolors.OKBLUE + '[Tagged]' + str(afilename) + bcolors.ENDC)
+        except OSError as e:
+            print(bcolors.WARNING + '[Error tagg]' + str(afilename) + bcolors.ENDC)
     if arename:
         filename_array = afilename.split('.wav')
         new_filename = filename_array[0]+' ('+str(bpm)+') .wav'
         try:
             os.rename(afilename, new_filename)
-            print bcolors.OKBLUE + '[Renamed]' + str(afilename) + bcolors.ENDC
+            print(bcolors.OKBLUE + '[Renamed]' + str(afilename) + bcolors.ENDC)
         except:
-            print bcolors.WARNING + '[Error rename]' + str(afilename) + bcolors.ENDC
+            print(bcolors.WARNING + '[Error rename]' + str(afilename) + bcolors.ENDC)
 
 
 if __name__ == '__main__':
@@ -185,4 +190,4 @@ if __name__ == '__main__':
     elif args.filename:
         execute(args.file, args.window, args.round, args.rename, args.tag)
     else:
-        print bcolors.WARNING + 'You must set filename or folder params' + bcolors.ENDC
+        print(bcolors.WARNING + 'You must set filename or folder params' + bcolors.ENDC)
